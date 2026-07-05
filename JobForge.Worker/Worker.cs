@@ -17,6 +17,13 @@ public class Worker(
 
     private const string FromAddress = "noreply@jobforge.local";
 
+    private static readonly TimeSpan[] BackoffDelays =
+    [
+        TimeSpan.FromMinutes(1),
+        TimeSpan.FromMinutes(5),
+        TimeSpan.FromMinutes(15)
+    ];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(PollInterval);
@@ -71,11 +78,37 @@ public class Worker(
         }
         catch (Exception ex)
         {
-            job.Status = JobStatus.Failed;
+            job.AttemptCount++;
             job.LastError = ex.Message;
             job.UpdatedAt = DateTimeOffset.UtcNow;
 
-            logger.LogWarning(ex, "Job {JobId} failed", job.Id);
+            if (job.AttemptCount < job.MaxAttempts)
+            {
+                job.Status = JobStatus.Pending;
+                job.NextRunAt = DateTimeOffset.UtcNow + BackoffDelays[job.AttemptCount - 1];
+
+                logger.LogWarning(
+                    "Job {JobId} failed on attempt {AttemptCount}, retrying at {NextRunAt}",
+                    job.Id, job.AttemptCount, job.NextRunAt);
+            }
+            else
+            {
+                job.Status = JobStatus.Failed;
+
+                db.FailedJobs.Add(new FailedJob
+                {
+                    OriginalJobId = job.Id,
+                    RecipientEmail = job.RecipientEmail,
+                    Subject = job.Subject,
+                    FinalError = ex.Message,
+                    AttemptCount = job.AttemptCount,
+                    FailedAt = DateTimeOffset.UtcNow
+                });
+
+                logger.LogError(
+                    "Job {JobId} dead-lettered after {AttemptCount} attempts",
+                    job.Id, job.AttemptCount);
+            }
         }
 
         await db.SaveChangesAsync(cancellationToken);

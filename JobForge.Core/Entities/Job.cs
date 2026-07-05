@@ -13,7 +13,7 @@ public class Job
     public JobStatus Status { get; set; } = JobStatus.Pending;
 
     public int AttemptCount { get; set; } = 0;
-    public int MaxAttempts { get; set; } = 3;
+    public int MaxAttempts { get; set; } = 4;
 
     public DateTimeOffset NextRunAt { get; set; } = DateTimeOffset.UtcNow;
 

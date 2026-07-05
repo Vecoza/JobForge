@@ -39,3 +39,8 @@ Content-Type: application/json
 }
 
 ###
+
+GET {{JobForge.Api_HostAddress}}/api/dashboard/stats
+Accept: application/json
+
+###

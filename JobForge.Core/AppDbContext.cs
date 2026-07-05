@@ -20,11 +20,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<string>()
                 .HasMaxLength(20);
 
-            entity.Property(j => j.RecipientEmail).HasMaxLength(320); // RFC 5321 max
+            entity.Property(j => j.RecipientEmail).HasMaxLength(320);
             entity.Property(j => j.Subject).HasMaxLength(500);
 
-            // Composite index supports the worker's claim query:
-            // WHERE Status = 'Pending' AND NextRunAt <= now()
             entity.HasIndex(j => new { j.Status, j.NextRunAt });
         });
 

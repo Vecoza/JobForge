@@ -1,8 +1,5 @@
 namespace JobForge.Core.Entities;
 
-// Dead-letter record. Inserted when a Job exhausts MaxAttempts (or hits a
-// permanent failure) — the original Job row is kept as-is (Status=Failed)
-// for audit history; this table is a fast lookup/alerting surface.
 public class FailedJob
 {
     public Guid Id { get; set; } = Guid.NewGuid();

@@ -41,8 +41,6 @@ public class NotificationsController(AppDbContext db) : ControllerBase
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
-            // Two identical requests landed at the same instant and both lost
-            // the check-then-insert race; fall back to the row the other one wrote.
             existing = await db.Jobs.FirstOrDefaultAsync(j => j.RequestId == request.RequestId, cancellationToken);
             if (existing is null)
             {

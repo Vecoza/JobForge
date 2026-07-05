@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="JobForge.Api/JobForge.Api.csproj" />
+  <Project Path="JobForge.Core/JobForge.Core.csproj" />
+  <Project Path="JobForge.Worker/JobForge.Worker.csproj" />
+</Solution>

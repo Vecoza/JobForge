@@ -8,6 +8,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<FailedJob> FailedJobs => Set<FailedJob>();
 
+    public Task<List<Job>> ClaimPendingJobsAsync(int batchSize, CancellationToken cancellationToken) =>
+        Jobs.FromSqlInterpolated(
+                $"""
+                UPDATE "Jobs"
+                SET "Status" = 'Processing', "ClaimedAt" = now(), "UpdatedAt" = now()
+                WHERE "Id" IN (
+                    SELECT "Id" FROM "Jobs"
+                    WHERE "Status" = 'Pending' AND "NextRunAt" <= now()
+                    ORDER BY "NextRunAt"
+                    LIMIT {batchSize}
+                    FOR UPDATE SKIP LOCKED
+                )
+                RETURNING *;
+                """)
+            .ToListAsync(cancellationToken);
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Job>(entity =>

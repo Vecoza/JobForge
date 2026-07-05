@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="JobForge.Api/JobForge.Api.csproj" />
+  <Project Path="JobForge.Core.Tests/JobForge.Core.Tests.csproj" />
   <Project Path="JobForge.Core/JobForge.Core.csproj" />
+  <Project Path="JobForge.Worker.Tests/JobForge.Worker.Tests.csproj" />
   <Project Path="JobForge.Worker/JobForge.Worker.csproj" />
 </Solution>

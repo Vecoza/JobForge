@@ -2,7 +2,6 @@ using JobForge.Core;
 using JobForge.Core.Entities;
 using MailKit.Net.Smtp;
 using MailKit.Security;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
@@ -16,13 +15,7 @@ public class Worker(
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
     private const string FromAddress = "noreply@jobforge.local";
-
-    private static readonly TimeSpan[] BackoffDelays =
-    [
-        TimeSpan.FromMinutes(1),
-        TimeSpan.FromMinutes(5),
-        TimeSpan.FromMinutes(15)
-    ];
+    private const int BatchSize = 10;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -40,21 +33,7 @@ public class Worker(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var claimedJobs = await db.Jobs
-            .FromSqlRaw(
-                """
-                UPDATE "Jobs"
-                SET "Status" = 'Processing', "ClaimedAt" = now(), "UpdatedAt" = now()
-                WHERE "Id" IN (
-                    SELECT "Id" FROM "Jobs"
-                    WHERE "Status" = 'Pending' AND "NextRunAt" <= now()
-                    ORDER BY "NextRunAt"
-                    LIMIT 10
-                    FOR UPDATE SKIP LOCKED
-                )
-                RETURNING *;
-                """)
-            .ToListAsync(stoppingToken);
+        var claimedJobs = await db.ClaimPendingJobsAsync(BatchSize, stoppingToken);
 
         logger.LogInformation("Claimed {Count} job(s) for processing", claimedJobs.Count);
 
@@ -82,10 +61,10 @@ public class Worker(
             job.LastError = ex.Message;
             job.UpdatedAt = DateTimeOffset.UtcNow;
 
-            if (job.AttemptCount < job.MaxAttempts)
+            if (RetryPolicy.ShouldRetry(job.AttemptCount, job.MaxAttempts))
             {
                 job.Status = JobStatus.Pending;
-                job.NextRunAt = DateTimeOffset.UtcNow + BackoffDelays[job.AttemptCount - 1];
+                job.NextRunAt = DateTimeOffset.UtcNow + BackoffCalculator.GetDelay(job.AttemptCount);
 
                 logger.LogWarning(
                     "Job {JobId} failed on attempt {AttemptCount}, retrying at {NextRunAt}",
